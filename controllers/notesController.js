@@ -91,6 +91,13 @@ const getAllNotes = asyncHandler(async (req, res) => {
                     })
                 }
             }
+
+            const escapedSearch = RegExp.escape(search)
+
+            filter.$or = [
+                { title: { $regex: escapedSearch, $options: 'i' } },
+                { text: { $regex: escapedSearch, $options: 'i' } }
+            ]
         } else {
             return res.status(400).json({
                 message: 'Non-string passed'
@@ -109,13 +116,11 @@ const getAllNotes = asyncHandler(async (req, res) => {
                 'Completed parameter must be either true or false (case-sensitive)'
             })
         }
+
+        filter.completed = rawCompleted === 'true'
     }
 
-    const notes = await Note.find().lean()
-
-    if(!notes?.length) {
-        return res.status(400).json({ message: 'No notes found' })
-    }
+    const notes = await Note.find(filter).lean()
 
     // Enrich notes in parallel with their assigned usernames.
     const notesWithUser = await Promise.all(notes.map(async (note) => {
@@ -132,9 +137,9 @@ const getAllNotes = asyncHandler(async (req, res) => {
 // @desc Create a new note
 // @route POST /notes
 const createNewNote = asyncHandler(async(req, res) => {
-    const {user, title, text} = req.body
+    const {user, title, text, completed} = req.body
 
-    if (!user || !title || !text) {
+    if (!user || !title || !text || typeof completed !== 'boolean') {
         return res.status(400).json({ message: 'All fields are required' })
     }
 
@@ -144,7 +149,7 @@ const createNewNote = asyncHandler(async(req, res) => {
         return res.status(409).json({ message: 'Duplicate note title' })
     }
 
-    const note = await Note.create({ user, title, text })
+    const note = await Note.create({ user, title, text, completed })
 
     if (note) { 
         return res.status(201).json({ message: 'New note created' })
