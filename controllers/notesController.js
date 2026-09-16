@@ -120,7 +120,14 @@ const getAllNotes = asyncHandler(async (req, res) => {
         filter.completed = rawCompleted === 'true'
     }
 
-    const notes = await Note.find(filter).lean()
+    const recordsToSkip = (page - 1) * limit
+
+    const options = 
+    { sort: { updatedAt: -1, _id: -1 }, skip: recordsToSkip, limit: limit }
+
+    const notes = await Note.find(filter, null, options).lean()
+
+    const total = Note.countDocuments(filter)
 
     // Enrich notes in parallel with their assigned usernames.
     const notesWithUser = await Promise.all(notes.map(async (note) => {
@@ -139,8 +146,14 @@ const getAllNotes = asyncHandler(async (req, res) => {
 const createNewNote = asyncHandler(async(req, res) => {
     const {user, title, text, completed} = req.body
 
-    if (!user || !title || !text || typeof completed !== 'boolean') {
+    if (!user || !title || !text) {
         return res.status(400).json({ message: 'All fields are required' })
+    }
+
+    if (completed !== undefined && typeof completed !== 'boolean') {
+        return res.status(400).json({
+            message: 'Completed must be a boolean'
+        })
     }
 
     const duplicate = await Note.findOne({ title }).lean().exec()
@@ -149,7 +162,13 @@ const createNewNote = asyncHandler(async(req, res) => {
         return res.status(409).json({ message: 'Duplicate note title' })
     }
 
-    const note = await Note.create({ user, title, text, completed })
+    const noteObject = { user, title, text }
+
+    if (completed !== undefined) {
+        noteObject.completed = completed
+    }
+
+    const note = await Note.create(noteObject)
 
     if (note) { 
         return res.status(201).json({ message: 'New note created' })
