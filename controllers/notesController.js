@@ -125,9 +125,9 @@ const getAllNotes = asyncHandler(async (req, res) => {
     const options = 
     { sort: { updatedAt: -1, _id: -1 }, skip: recordsToSkip, limit: limit }
 
-    const notes = await Note.find(filter, null, options).lean()
+    const notes = await Note.find(filter, null, options).lean().exec()
 
-    const total = Note.countDocuments(filter)
+    const total = await Note.countDocuments(filter).exec()
 
     // Enrich notes in parallel with their assigned usernames.
     const notesWithUser = await Promise.all(notes.map(async (note) => {
@@ -138,7 +138,23 @@ const getAllNotes = asyncHandler(async (req, res) => {
         }
     }))
 
-    res.json(notesWithUser)
+    const numPages = Math.ceil(total / limit)
+
+    const hasNextPage = page < numPages
+
+    const hasPreviousPage = numPages > 0 && page > 1
+
+    return res.json({
+        notes: notesWithUser,
+        pagination: {
+            page,
+            limit,
+            totalNotes: total,
+            totalPages: numPages,
+            hasNextPage,
+            hasPreviousPage
+        }
+    })
 })
 
 // @desc Create a new note
