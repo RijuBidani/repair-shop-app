@@ -5,155 +5,278 @@ const User = require('../models/User')
 
 const asyncHandler = require('express-async-handler')
 
+//global variable
+const SUPPORTED_PARAMETERS = new Set([
+    'search',
+    'completed',
+    'page',
+    'limit'
+])
+
+//integer parameter validation
+const parsePositiveIntegerParameter = (
+    rawValue,
+    {
+        name,
+        defaultValue,
+        max
+    }
+) => {
+    if (rawValue === undefined) {
+        return { value: defaultValue }
+    }
+
+    if (
+        typeof rawValue !== 'string' ||
+        !/^[1-9]\d*$/.test(rawValue)
+    ) {
+        return {
+            error: `${name} must be a positive integer`
+        }
+    }
+
+    const value = Number(rawValue)
+
+    if (!Number.isSafeInteger(value)) {
+        return {
+            error: `${name} is too large`
+        }
+    }
+
+    if (max !== undefined && value > max) {
+        return {
+            error: `${name} must be between 1 and ${max}`
+        }
+    }
+
+    return { value }
+}
+
+//Contract-based parameter validation helper
+const parseNotesQuery = (query) => {
+    const hasUnsupportedParameter = Object.keys(query).some(
+        parameter => !SUPPORTED_PARAMETERS.has(parameter)
+    )
+
+    if (hasUnsupportedParameter) {
+        return {
+            error: 'Invalid parameter name(s)'
+        }
+    }
+
+    const {
+        search: rawSearch,
+        completed: rawCompleted,
+        page: rawPage,
+        limit: rawLimit
+    } = query
+
+    if (
+        Array.isArray(rawSearch) ||
+        Array.isArray(rawCompleted) ||
+        Array.isArray(rawPage) ||
+        Array.isArray(rawLimit)
+    ) {
+        return {
+            error: 'Parameter(s) repeated in query'
+        }
+    }
+
+    const pageResult = parsePositiveIntegerParameter(
+        rawPage,
+        {
+            name: 'Page',
+            defaultValue: 1
+        }
+    )
+
+    if (pageResult.error) {
+        return pageResult
+    }
+
+    const limitResult = parsePositiveIntegerParameter(
+        rawLimit,
+        {
+            name: 'Limit',
+            defaultValue: 10,
+            max: 50
+        }
+    )
+
+    if (limitResult.error) {
+        return limitResult
+    }
+
+    let search
+
+    if (rawSearch !== undefined) {
+        if (typeof rawSearch !== 'string') {
+            return {
+                error: 'Non-string passed'
+            }
+        }
+
+        search = rawSearch.trim()
+
+        if (search.length > 100) {
+            return {
+                error: 'Maximum search string length exceeded'
+            }
+        }
+    }
+
+    let completed
+
+    if (rawCompleted !== undefined) {
+        if (typeof rawCompleted !== 'string') {
+            return {
+                error: 'Non-string passed'
+            }
+        }
+
+        if (
+            rawCompleted !== 'true' &&
+            rawCompleted !== 'false'
+        ) {
+            return {
+                error:
+                    'Completed parameter must be either true or false (case-sensitive)'
+            }
+        }
+
+        completed = rawCompleted === 'true'
+    }
+
+    return {
+        value: {
+            page: pageResult.value,
+            limit: limitResult.value,
+            search,
+            completed
+        }
+    }
+}
+
+//MongoDB filter construction
+const escapeRegExp = (value) => {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+const buildNotesFilter = ({ search, completed }) => {
+    const filter = {}
+
+    if (search) {
+        const escapedSearch = escapeRegExp(search)
+
+        filter.$or = [
+            {
+                title: {
+                    $regex: escapedSearch,
+                    $options: 'i'
+                }
+            },
+            {
+                text: {
+                    $regex: escapedSearch,
+                    $options: 'i'
+                }
+            }
+        ]
+    }
+
+    if (completed !== undefined) {
+        filter.completed = completed
+    }
+
+    return filter
+}
+
+//Pagination metadata helper
+const buildPagination = ({
+    page,
+    limit,
+    total
+}) => {
+    const totalPages = Math.ceil(total / limit)
+
+    return {
+        page,
+        limit,
+        totalNotes: total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: totalPages > 0 && page > 1
+    }
+}
+
 // @desc Get all notes
 // @route GET /notes
 const getAllNotes = asyncHandler(async (req, res) => {
 
-    const supportedParameters = new Set(['search', 'completed', 'page', 'limit'])
+    const queryResult = parseNotesQuery(req.query)
 
-    const hasUnsupportedParameter = Object.keys(req.query).some(
-        (parameter) => !supportedParameters.has(parameter)
-    )
-
-    if (hasUnsupportedParameter) {
+    if (queryResult.error) {
         return res.status(400).json({
-            message: 'Invalid parameter name(s)'
+            message: queryResult.error
         })
     }
 
-    const rawPage = req.query.page
-    const rawLimit = req.query.limit
-    const rawSearch = req.query.search
-    const rawCompleted = req.query.completed
+    const {
+        page,
+        limit,
+        search,
+        completed
+    } = queryResult.value
 
-    let page, limit, search, completed
-
-    if (Array.isArray(rawSearch) || Array.isArray(rawCompleted) 
-        || Array.isArray(rawPage) || Array.isArray(rawLimit)) 
-    {
-        return res.status(400).json({ message: 'Parameter(s) repeated in query' })
-    }
-
-    if (rawPage === undefined) {
-        page = 1
-    } else {
-        if (typeof rawPage !== 'string' || 
-            !/^[1-9]\d*$/.test(rawPage) 
-        ) {
-            return res.status(400).json( {
-                message: 'Page must be a positive integer'
-            })
-        }
-
-        page = Number(rawPage)
-
-        if (!Number.isSafeInteger(page)) {
-            return res.status(400).
-            json({ message: 'Page is too large' })
-        }
-    }
-
-    if(rawLimit === undefined) {
-        limit = 10
-    } else {
-        if (typeof rawLimit !== 'string' || 
-            !/^[1-9]\d*$/.test(rawLimit)
-        ) {
-            return res.status(400).json({
-                message: 'Limit must be a positive integer'
-            })
-        }
-
-        limit = Number(rawLimit)
-
-        if (!Number.isSafeInteger(limit)) {
-            return res.status(400).
-            json({ message: 'Limit is too large' })
-        }
-
-        if (limit > 50) {
-            return res.status(400).json({
-                message: 'Limit must be between 1 and 50'
-            })
-        }
-    }
-
-    const filter = {}
-
-    if (rawSearch !== undefined) {
-        if (typeof rawSearch === 'string') {
-            search = rawSearch.trim()
-
-            if (search !== '') {
-                if (search.length > 100) {
-                    return res.status(400).json({
-                        message: 'Maximum search string length exceeded'
-                    })
-                }
-            }
-
-            const escapedSearch = RegExp.escape(search)
-
-            filter.$or = [
-                { title: { $regex: escapedSearch, $options: 'i' } },
-                { text: { $regex: escapedSearch, $options: 'i' } }
-            ]
-        } else {
-            return res.status(400).json({
-                message: 'Non-string passed'
-            })
-        }
-    }
-
-    if (rawCompleted !== undefined) {
-        if (typeof rawCompleted !== 'string') {
-            return res.status(400).json({ message: 'Non-string passed' })
-        }
-
-        if (rawCompleted !== 'true' && rawCompleted !== 'false') {
-            return res.status(400).json({
-                message: 
-                'Completed parameter must be either true or false (case-sensitive)'
-            })
-        }
-
-        filter.completed = rawCompleted === 'true'
-    }
+    const filter = buildNotesFilter({
+        search,
+        completed
+    })
 
     const recordsToSkip = (page - 1) * limit
 
-    const options = 
-    { sort: { updatedAt: -1, _id: -1 }, skip: recordsToSkip, limit: limit }
+    const options = {
+        sort: {
+            updatedAt: -1,
+            _id: -1
+        },
+        skip: recordsToSkip,
+        limit
+    }
 
-    const notes = await Note.find(filter, null, options).lean().exec()
+    const notes = await Note
+        .find(filter, null, options)
+        .lean()
+        .exec()
 
-    const total = await Note.countDocuments(filter).exec()
+    const total = await Note
+        .countDocuments(filter)
+        .exec()
 
     // Enrich notes in parallel with their assigned usernames.
-    const notesWithUser = await Promise.all(notes.map(async (note) => {
-        const user = await User.findById(note.user).lean().exec()
-        return {
-            ...note,
-            username: user?.username ?? null
-        }
-    }))
+    const notesWithUser = await Promise.all(
+        notes.map(async (note) => {
+            const user = await User
+                .findById(note.user)
+                .lean()
+                .exec()
 
-    const numPages = Math.ceil(total / limit)
+            return {
+                ...note,
+                username: user?.username ?? null
+            }
+        })
+    )
 
-    const hasNextPage = page < numPages
-
-    const hasPreviousPage = numPages > 0 && page > 1
+    const pagination = buildPagination({
+        page,
+        limit,
+        total
+    })
 
     return res.json({
         notes: notesWithUser,
-        pagination: {
-            page,
-            limit,
-            totalNotes: total,
-            totalPages: numPages,
-            hasNextPage,
-            hasPreviousPage
-        }
+        pagination
     })
 })
 
