@@ -1,0 +1,2 @@
+Generated 2026-10-09 (Asia/Calcutta).
+The 127 main requests and their Postman scripts were exercised against the exact repository controller source with in-memory model doubles: 261 assertions passed, zero failures, no fixture users/notes remaining. This validates scripts and fixture orchestration under the model doubles; it is NOT a real HTTP, Mongoose or MongoDB result. Optional tie check not run against MongoDB.

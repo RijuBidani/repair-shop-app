@@ -235,6 +235,12 @@ const getAllNotes = asyncHandler(async (req, res) => {
 
     const recordsToSkip = (page - 1) * limit
 
+    if (!Number.isSafeInteger(recordsToSkip)) {
+        return res.status(400).json({
+            message: 'Pagination offset is too large'
+        })
+    }
+
     const options = {
         sort: {
             updatedAt: -1,

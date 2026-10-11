@@ -1,0 +1,3485 @@
+{
+  "info": {
+    "_postman_id": "99c30025-c929-432a-a314-0814e5bb2ef7",
+    "name": "Repair Shop \u2014 Canonical API Regression",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run all requests sequentially against an EMPTY dedicated test database. Creates 2 users and 12 notes; tests GET contract and CRUD; cleans up. Optional tie fixture is skipped unless runTieFixture=true. Not a claim of exhaustive testing or a recorded live pass."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3500"
+    },
+    {
+      "key": "runTieFixture",
+      "value": "false"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Setup \u2014 empty dedicated test database required",
+      "item": [
+        {
+          "name": "Initialize run; verify empty notes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const run=Date.now()+'-'+Math.random().toString(16).slice(2);pm.collectionVariables.set('marker','probe-'+run);pm.collectionVariables.set('username','probe_user_'+run);pm.collectionVariables.set('username2','probe_other_'+run);for(let i=1;i<=12;i++)pm.collectionVariables.unset('id'+i);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();pm.test('Dedicated DB starts empty',()=>{pm.expect(b.notes).to.eql([]);pm.expect(b.pagination.totalNotes).to.eql(0);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create user 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"{{username}}\", \"password\": \"FixtureOnly123!\", \"roles\": [\"Employee\"]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create user 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"{{username2}}\", \"password\": \"FixtureOnly123!\", \"roles\": [\"Employee\"]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Capture users; verify password exclusion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const a=pm.response.json();pm.test('Passwords excluded',()=>a.forEach(u=>pm.expect(u).not.to.have.property('password')));for(const [name,id] of [['username','userId'],['username2','user2Id']]){const u=a.find(x=>x.username===pm.collectionVariables.get(name));pm.test(name+' exists',()=>pm.expect(u).to.exist);if(u)pm.collectionVariables.set(id,u._id);}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 01",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-01\", \"text\": \"fixture text TextNeedle\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title1\",pm.variables.replaceIn(\"{{marker}} note-01\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 02",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-02 TITLEneedle\", \"text\": \"fixture text\", \"completed\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title2\",pm.variables.replaceIn(\"{{marker}} note-02 TITLEneedle\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 03",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-03 literal.a+b[0](x)?^$|{z}\\\\end\", \"text\": \"fixture text\", \"completed\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title3\",pm.variables.replaceIn(\"{{marker}} note-03 literal.a+b[0](x)?^$|{z}\\\\end\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 04",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-04 literalXaab0x\", \"text\": \"fixture text\", \"completed\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title4\",pm.variables.replaceIn(\"{{marker}} note-04 literalXaab0x\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 05",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-05\", \"text\": \"fixture text\", \"completed\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title5\",pm.variables.replaceIn(\"{{marker}} note-05\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 06",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-06\", \"text\": \"fixture text\", \"completed\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title6\",pm.variables.replaceIn(\"{{marker}} note-06\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 07",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-07\", \"text\": \"fixture text\", \"completed\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title7\",pm.variables.replaceIn(\"{{marker}} note-07\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 08",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-08\", \"text\": \"fixture text\", \"completed\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title8\",pm.variables.replaceIn(\"{{marker}} note-08\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 09",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-09\", \"text\": \"fixture text\", \"completed\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title9\",pm.variables.replaceIn(\"{{marker}} note-09\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 10",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-10\", \"text\": \"fixture text\", \"completed\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title10\",pm.variables.replaceIn(\"{{marker}} note-10\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 11",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-11\", \"text\": \"fixture text\", \"completed\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title11\",pm.variables.replaceIn(\"{{marker}} note-11\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create fixture note 12",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}} note-12\", \"text\": \"fixture text\", \"completed\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"title12\",pm.variables.replaceIn(\"{{marker}} note-12\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.expect(pm.response.code).to.eql(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Capture note IDs and baseline ordering",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&limit=50"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 50, \"totalNotes\": 12, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('All fixture IDs captured',()=>{for(let i=1;i<=12;i++){const title=pm.variables.replaceIn(pm.collectionVariables.get('title'+i));const n=b.notes.find(x=>x.title===title);pm.expect(n,'note '+i).to.exist;pm.collectionVariables.set('id'+i,n._id);} });",
+                  "const sorted=[...b.notes].sort((a,c)=>Date.parse(c.updatedAt)-Date.parse(a.updatedAt)||c._id.localeCompare(a._id));pm.test('Timestamp and ID descending order',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(sorted.map(n=>n._id)));pm.collectionVariables.set('order',JSON.stringify(sorted.map(n=>n._id)));pm.test('Create default completed false',()=>pm.expect(b.notes.find(n=>n._id===pm.collectionVariables.get('id1')).completed).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 GET notes \u2014 search, completed, blank inputs, literal regex",
+      "item": [
+        {
+          "name": "Default pagination",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 12, \"totalPages\": 2, \"hasNextPage\": true, \"hasPreviousPage\": false}));",
+                  "pm.test('First 10 expected IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(0,10)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Empty search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search="
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 12, \"totalPages\": 2, \"hasNextPage\": true, \"hasPreviousPage\": false}));",
+                  "pm.test('First 10 expected IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(0,10)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Spaces-only search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=%20%20%20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 12, \"totalPages\": 2, \"hasNextPage\": true, \"hasPreviousPage\": false}));",
+                  "pm.test('First 10 expected IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(0,10)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tabs and newline search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=%09%0A"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 12, \"totalPages\": 2, \"hasNextPage\": true, \"hasPreviousPage\": false}));",
+                  "pm.test('First 10 expected IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(0,10)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Trimmed marker",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=%20{{marker}}%20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 12, \"totalPages\": 2, \"hasNextPage\": true, \"hasPreviousPage\": false}));",
+                  "pm.test('First 10 expected IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(0,10)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Text substring, case insensitive",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=textneedle"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "const expected=[1].map(i=>pm.collectionVariables.get('id'+i));",
+                  "pm.test('Exact ordered note IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(expected));",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 1, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Title substring, case insensitive",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=titleneedle"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "const expected=[2].map(i=>pm.collectionVariables.get('id'+i));",
+                  "pm.test('Exact ordered note IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(expected));",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 1, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Literal regex characters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=literal.a%2Bb%5B0%5D%28x%29%3F%5E%24%7C%7Bz%7D%5Cend"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "const expected=[3].map(i=>pm.collectionVariables.get('id'+i));",
+                  "pm.test('Exact ordered note IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(expected));",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 1, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Valid search with no matches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}-absent"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "const expected=[].map(i=>pm.collectionVariables.get('id'+i));",
+                  "pm.test('Exact ordered note IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(expected));",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 0, \"totalPages\": 0, \"hasNextPage\": false, \"hasPreviousPage\": false}));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completion only true",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed=true"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 6, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('Exact completed subset',()=>{const want=true;const expected=JSON.parse(pm.collectionVariables.get('order')).filter(id=>{for(let i=1;i<=12;i++)if(pm.collectionVariables.get('id'+i)===id)return (i%2===0)===want;});pm.expect(b.notes.map(n=>n._id)).to.eql(expected);b.notes.forEach(n=>pm.expect(n.completed).to.eql(want));});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Combined filters true",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&completed=true"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 6, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('Exact completed subset',()=>{const want=true;const expected=JSON.parse(pm.collectionVariables.get('order')).filter(id=>{for(let i=1;i<=12;i++)if(pm.collectionVariables.get('id'+i)===id)return (i%2===0)===want;});pm.expect(b.notes.map(n=>n._id)).to.eql(expected);b.notes.forEach(n=>pm.expect(n.completed).to.eql(want));});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blank search preserves completion true",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=%20%20&completed=true"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 6, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('Exact completed subset',()=>{const want=true;const expected=JSON.parse(pm.collectionVariables.get('order')).filter(id=>{for(let i=1;i<=12;i++)if(pm.collectionVariables.get('id'+i)===id)return (i%2===0)===want;});pm.expect(b.notes.map(n=>n._id)).to.eql(expected);b.notes.forEach(n=>pm.expect(n.completed).to.eql(want));});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completion only false",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed=false"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 6, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('Exact completed subset',()=>{const want=false;const expected=JSON.parse(pm.collectionVariables.get('order')).filter(id=>{for(let i=1;i<=12;i++)if(pm.collectionVariables.get('id'+i)===id)return (i%2===0)===want;});pm.expect(b.notes.map(n=>n._id)).to.eql(expected);b.notes.forEach(n=>pm.expect(n.completed).to.eql(want));});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Combined filters false",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&completed=false"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 6, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('Exact completed subset',()=>{const want=false;const expected=JSON.parse(pm.collectionVariables.get('order')).filter(id=>{for(let i=1;i<=12;i++)if(pm.collectionVariables.get('id'+i)===id)return (i%2===0)===want;});pm.expect(b.notes.map(n=>n._id)).to.eql(expected);b.notes.forEach(n=>pm.expect(n.completed).to.eql(want));});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blank search preserves completion false",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=%20%20&completed=false"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 6, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('Exact completed subset',()=>{const want=false;const expected=JSON.parse(pm.collectionVariables.get('order')).filter(id=>{for(let i=1;i<=12;i++)if(pm.collectionVariables.get('id'+i)===id)return (i%2===0)===want;});pm.expect(b.notes.map(n=>n._id)).to.eql(expected);b.notes.forEach(n=>pm.expect(n.completed).to.eql(want));});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filters are combined with AND",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=textneedle&completed=true"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "const expected=[].map(i=>pm.collectionVariables.get('id'+i));",
+                  "pm.test('Exact ordered note IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(expected));",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 0, \"totalPages\": 0, \"hasNextPage\": false, \"hasPreviousPage\": false}));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Username enrichment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=textneedle"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "const expected=[1].map(i=>pm.collectionVariables.get('id'+i));",
+                  "pm.test('Exact ordered note IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(expected));",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 1, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('Assigned username',()=>pm.expect(b.notes[0].username).to.eql(pm.collectionVariables.get('username')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 GET notes \u2014 pagination, metadata and sorting",
+      "item": [
+        {
+          "name": "Page 1, limit 5",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&page=1&limit=5"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 5, \"totalNotes\": 12, \"totalPages\": 3, \"hasNextPage\": true, \"hasPreviousPage\": false}));",
+                  "pm.test('Correct page slice',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(0,5)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Page 2, limit 5",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&page=2&limit=5"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 2, \"limit\": 5, \"totalNotes\": 12, \"totalPages\": 3, \"hasNextPage\": true, \"hasPreviousPage\": true}));",
+                  "pm.test('Correct page slice',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(5,10)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Page 3, limit 5",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&page=3&limit=5"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 3, \"limit\": 5, \"totalNotes\": 12, \"totalPages\": 3, \"hasNextPage\": false, \"hasPreviousPage\": true}));",
+                  "pm.test('Correct page slice',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(10,15)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Page 4, limit 5",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&page=4&limit=5"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 4, \"limit\": 5, \"totalNotes\": 12, \"totalPages\": 3, \"hasNextPage\": false, \"hasPreviousPage\": true}));",
+                  "pm.test('Correct page slice',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(15,20)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Limit 1",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&limit=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 1, \"totalNotes\": 12, \"totalPages\": 12, \"hasNextPage\": true, \"hasPreviousPage\": false}));",
+                  "pm.test('Limit slice',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(0,1)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Limit 12",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&limit=12"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 12, \"totalNotes\": 12, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('Limit slice',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(0,12)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Limit 50",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&limit=50"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 50, \"totalNotes\": 12, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('Limit slice',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(JSON.parse(pm.collectionVariables.get('order')).slice(0,50)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Zero matches on page 9",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}-absent&page=9&limit=5"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "const expected=[].map(i=>pm.collectionVariables.get('id'+i));",
+                  "pm.test('Exact ordered note IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(expected));",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 9, \"limit\": 5, \"totalNotes\": 0, \"totalPages\": 0, \"hasNextPage\": false, \"hasPreviousPage\": false}));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 GET notes \u2014 validation matrix",
+      "item": [
+        {
+          "name": "Repeated search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=x&search=x"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Repeated parameter error',()=>pm.expect(pm.response.json().message).to.eql('Parameter(s) repeated in query'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Repeated completed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed=true&completed=true"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Repeated parameter error',()=>pm.expect(pm.response.json().message).to.eql('Parameter(s) repeated in query'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Repeated page",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=1&page=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Repeated parameter error',()=>pm.expect(pm.response.json().message).to.eql('Parameter(s) repeated in query'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Repeated limit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=10&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Repeated parameter error',()=>pm.expect(pm.response.json().message).to.eql('Parameter(s) repeated in query'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported unknown=x",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?unknown=x"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Unsupported parameter error',()=>pm.expect(pm.response.json().message).to.eql('Invalid parameter name(s)'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported sortBy=title",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?sortBy=title"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Unsupported parameter error',()=>pm.expect(pm.response.json().message).to.eql('Invalid parameter name(s)'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported order=asc",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?order=asc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Unsupported parameter error',()=>pm.expect(pm.response.json().message).to.eql('Invalid parameter name(s)'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported Search=x",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?Search=x"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Unsupported parameter error',()=>pm.expect(pm.response.json().message).to.eql('Invalid parameter name(s)'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported search[x]=a",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search[x]=a"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Unsupported parameter error',()=>pm.expect(pm.response.json().message).to.eql('Invalid parameter name(s)'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported page[]=1",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page[]=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Unsupported parameter error',()=>pm.expect(pm.response.json().message).to.eql('Invalid parameter name(s)'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unsupported completed[x]=true",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed[x]=true"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Unsupported parameter error',()=>pm.expect(pm.response.json().message).to.eql('Invalid parameter name(s)'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: ''",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page="
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: '0'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=0"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: '-1'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=-1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: '1.5'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=1.5"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: 'NaN'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=NaN"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: 'Infinity'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=Infinity"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: '01'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=01"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: '1e2'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=1e2"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: '%201%20'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=%201%20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: '%2B1'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=%2B1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: '9007199254740992'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=9007199254740992"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "page invalid: 'abc'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?page=abc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: ''",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit="
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: '0'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=0"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: '-1'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=-1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: '1.5'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=1.5"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: 'NaN'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=NaN"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: 'Infinity'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=Infinity"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: '01'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=01"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: '1e2'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=1e2"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: '%201%20'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=%201%20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: '%2B1'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=%2B1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: '9007199254740992'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=9007199254740992"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "limit invalid: 'abc'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=abc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Error message present',()=>pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Limit 51",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?limit=51"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completed invalid: ''",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed="
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completed invalid: 'True'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed=True"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completed invalid: 'FALSE'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed=FALSE"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completed invalid: '1'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completed invalid: '0'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed=0"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completed invalid: 'yes'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed=yes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Completed invalid: '%20true%20'",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?completed=%20true%20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search over 100 characters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search exactly 100 characters accepted",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "const expected=[].map(i=>pm.collectionVariables.get('id'+i));",
+                  "pm.test('Exact ordered note IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(expected));",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 0, \"totalPages\": 0, \"hasNextPage\": false, \"hasPreviousPage\": false}));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 CRUD regression \u2014 unchanged handlers, persistence and guards",
+      "item": [
+        {
+          "name": "Duplicate username",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"{{username}}\", \"password\": \"FixtureOnly123!\", \"roles\": [\"Employee\"]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409',()=>pm.expect(pm.response.code).to.eql(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User required fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"missing-password\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User roles required",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"{{marker}}-bad\", \"password\": \"FixtureOnly123!\", \"roles\": []}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Duplicate note title",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{title1}}\", \"text\": \"duplicate\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409',()=>pm.expect(pm.response.code).to.eql(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Note required fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"missing text\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Note completed must be boolean",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user\": \"{{userId}}\", \"title\": \"{{marker}}-invalid\", \"text\": \"text\", \"completed\": \"false\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Block assigned-user deletion",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{userId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));",
+                  "pm.test('Ownership guard',()=>pm.expect(pm.response.json().message).to.eql('User has assigned notes'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update user active false, preserve password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{userId}}\", \"username\": \"{{username}}\", \"roles\": [\"Employee\", \"Manager\"], \"active\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify user update and password exclusion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const u=pm.response.json().find(x=>x._id===pm.collectionVariables.get('userId'));pm.test('User update persisted',()=>{pm.expect(u.active).to.eql(false);pm.expect(u.roles).to.eql(['Employee','Manager']);pm.expect(u).not.to.have.property('password');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject duplicate username on update",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{userId}}\", \"username\": \"{{username2}}\", \"roles\": [\"Employee\"], \"active\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409',()=>pm.expect(pm.response.code).to.eql(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject missing update user fields",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{userId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update note true to false, own title accepted",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id2}}\", \"user\": \"{{userId}}\", \"title\": \"{{title2}}\", \"text\": \"Updated persistent text\", \"completed\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify note update, false accepted, newest first",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}&limit=50"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 50, \"totalNotes\": 12, \"totalPages\": 1, \"hasNextPage\": false, \"hasPreviousPage\": false}));",
+                  "pm.test('Update persisted and moves note first',()=>{pm.expect(b.notes[0]._id).to.eql(pm.collectionVariables.get('id2'));pm.expect(b.notes[0].completed).to.eql(false);pm.expect(b.notes[0].text).to.eql('Updated persistent text');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject duplicate title on update",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id2}}\", \"user\": \"{{userId}}\", \"title\": \"{{title1}}\", \"text\": \"duplicate\", \"completed\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409',()=>pm.expect(pm.response.code).to.eql(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject missing update note fields",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id2}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject nonboolean update completion",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id2}}\", \"user\": \"{{userId}}\", \"title\": \"{{title2}}\", \"text\": \"text\", \"completed\": \"false\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete notes missing ID",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete notes nonexistent valid ID",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"000000000000000000000001\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update notes nonexistent valid ID",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"000000000000000000000001\", \"user\": \"{{userId}}\", \"title\": \"absent\", \"text\": \"absent\", \"completed\": false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete users missing ID",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete users nonexistent valid ID",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"000000000000000000000001\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update users nonexistent valid ID",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"000000000000000000000001\", \"username\": \"absent\", \"roles\": [\"Employee\"], \"active\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 Cleanup \u2014 deletes only this run\u2019s fixtures",
+      "item": [
+        {
+          "name": "Delete fixture note 01",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id1}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 02",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id2}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 03",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id3}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 04",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id4}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 05",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id5}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 06",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id6}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 07",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id7}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 08",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id8}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 09",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id9}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 10",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id10}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 11",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id11}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete fixture note 12",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id12}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify fixture notes removed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search={{marker}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "const expected=[].map(i=>pm.collectionVariables.get('id'+i));",
+                  "pm.test('Exact ordered note IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(expected));",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 0, \"totalPages\": 0, \"hasNextPage\": false, \"hasPreviousPage\": false}));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deleted note cannot be deleted again",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/notes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{id1}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete userId",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{userId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete user2Id",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{user2Id}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deleted user cannot be deleted again",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"{{userId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400',()=>pm.expect(pm.response.code).to.eql(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify notes empty after cleanup",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();",
+                  "pm.test('Response shape',()=>{pm.expect(b).to.have.all.keys('notes','pagination');pm.expect(b.notes).to.be.an('array');});",
+                  "const expected=[].map(i=>pm.collectionVariables.get('id'+i));",
+                  "pm.test('Exact ordered note IDs',()=>pm.expect(b.notes.map(n=>n._id)).to.eql(expected));",
+                  "pm.test('Exact metadata',()=>pm.expect(b.pagination).to.eql({\"page\": 1, \"limit\": 10, \"totalNotes\": 0, \"totalPages\": 0, \"hasNextPage\": false, \"hasPreviousPage\": false}));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 Optional equal-timestamp fixture \u2014 skipped by default",
+      "item": [
+        {
+          "name": "Equal timestamps sort by descending _id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notes?search=canonical-tie-fixture&limit=50"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if(pm.variables.get('runTieFixture')!=='true')pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.expect(pm.response.code).to.eql(200));",
+                  "const b=pm.response.json();pm.test('Both tie fixtures found',()=>pm.expect(b.notes.length).to.eql(2));pm.test('Equal timestamp and descending ID',()=>{pm.expect(b.notes[0].updatedAt).to.eql(b.notes[1].updatedAt);pm.expect(b.notes[0]._id).to.eql('650000000000000000000002');pm.expect(b.notes[1]._id).to.eql('650000000000000000000001');});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
