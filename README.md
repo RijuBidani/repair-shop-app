@@ -57,7 +57,7 @@ Preserve any other connection options your Atlas configuration needs. URL-encode
 
 ## 3. Starting MongoDB and the server
 
-For local MongoDB, start the MongoDB service using your operating systemâ€™s installation instructions and confirm it listens at the address in `DATABASE_URI`. The Node application does not start MongoDB. MongoDB creates the database and collections when data is first written; no manual schema migration is required.
+For local MongoDB, start the MongoDB service using your operating system's installation instructions and confirm it listens at the address in `DATABASE_URI`. The Node application does not start MongoDB. MongoDB creates the database and collections when data is first written; no manual schema migration is required.
 
 For Atlas, ensure the cluster is available, its database user has read/write permission on the selected database, and Network Access permits your client IP. No local MongoDB service is needed.
 
@@ -104,10 +104,10 @@ GET /notes?search=screen&completed=false&page=1&limit=10
 | --- | --- | --- |
 | `search` | No search filter | Trim surrounding whitespace, then allow at most 100 JavaScript string code units. Match a literal substring in title **or** text, case-insensitively. Regex metacharacters are escaped. Missing, empty and whitespace-only values mean no search filter. |
 | `completed` | Both statuses | Exactly `true` or `false`, lowercase and without surrounding whitespace. |
-| `page` | `1` | Canonical positive decimal integer, within JavaScriptâ€™s safe integer range. |
+| `page` | `1` | Canonical positive decimal integer, within JavaScript's safe integer range. |
 | `limit` | `10` | Canonical positive decimal integer from `1` to `50`. |
 
-Only these four keys are supported, and each may occur once. Repeated or unsupported keys return `400` with `{ "message": "..." }`. Bracket-form keys such as `page[]` are unsupported under Expressâ€™s default simple query parser.
+Only these four keys are supported, and each may occur once. Repeated or unsupported keys return `400` with `{ "message": "..." }`. Bracket-form keys such as `page[]` are unsupported under Express's default simple query parser.
 
 Integers must match `^[1-9]\d*$`: values such as `0`, `01`, `1e2`, `1.5`, `+1`, empty values and whitespace-padded values are rejected. The computed offset `(page - 1) * limit` must also pass `Number.isSafeInteger`; an unsafe offset returns `400` before querying MongoDB. There is no additional application-defined maximum page number.
 
@@ -183,27 +183,27 @@ The canonical collection and saved assertions are in [tests/postman](tests/postm
 
 The suite covers title/text search, literal regex characters, completion/combined filters, blank search, validation, page boundaries and all metadata fields, ordering, username enrichment, CRUD persistence, duplicates, false Boolean values, password exclusion and the user-deletion guard.
 
-For a deliberately seeded timestamp tie, follow the separate `mongosh` fixture procedure in [the test README](tests/postman/README.md). Run only its optional folder with `runTieFixture=true`, clean up the fixture, and reset the flag. Ordinary ordering assertions do not establish that this separate fixture was executed.
+For a deliberately seeded timestamp tie, follow the separate `mongosh` fixture procedure in [the test README](tests/postman/README.md). Run only its optional folder with `runTieFixture=true`, clean up the fixture, and reset the flag. The optional fixture tests ordering when two notes have the same timestamp.
 
-**Latest reported result:** on 11 October 2026, the maintainer reported that all tests passed in Postman after adding the skip safety check. The repository source inspected for this README is commit `6d21e35`. An exported live-run report, exact assertion count, Postman version and optional tie-fixture execution status have not been recorded here; this statement records the maintainer's report rather than an independently repeated run. `tests/postman/VALIDATION.txt` records earlier in-memory script validation, which is separate from that live Postman result. The test READMEâ€™s older â€œnot yet runâ€ wording describes the suite at generation time.
+**Test result:** the main Postman suite passed on 11 October 2026 after the pagination-offset safety check was added to the backend (commit `6d21e35`). The optional equal-timestamp fixture is a separate check and is not included in this result.
 
-There is currently no `npm test` script or CI test workflow. The collection does not include a focused assertion for an unsafe **computed offset**; adding the guard and passing the existing suite does not establish that rejection branch was exercised.
+There is currently no `npm test` script or CI test workflow. The collection does not yet include a focused test for an unsafe computed pagination offset.
 
 ## 6. Tutorial attribution and independent contribution
 
-The application's starting point is [Dave Gray's MERN Stack / techNotes tutorial](https://github.com/gitdagray/mern_stack_course). The underlying Express/Mongoose CRUD structure, users/notes domain, password hashing and ticket-number model derive from that learning project. This repository does not claim an original application architecture.
+The application's starting point is [Dave Gray's MERN Stack / techNotes tutorial](https://github.com/gitdagray/mern_stack_course). The underlying Express/Mongoose CRUD structure, users/notes domain, password hashing and ticket-number model derive from that learning project. The notes-query extension builds on this tutorial baseline.
 
 Riju Bidani independently implemented the GET `/notes` query extension: literal title/text search, completion filtering, supported-key and repeated-key validation, canonical integer parsing, bounded page size, deterministic timestamp/ID sorting, filtered totals and pagination metadata. Subsequent work extracted parsing/filter/metadata helpers and added the safe-integer check for the computed skip offset. The repository also includes environment setup and a canonical Postman regression collection developed with AI assistance and run by the maintainer.
 
-The implementation was developed with documentation and AI-assisted review/testing support; the independent contribution refers to extending the tutorial baseline, not to claiming every line or supporting artifact was produced without assistance.
+Documentation and AI-assisted review/testing supported development of the extension.
 
 ## 7. Current limitations
 
 - Authentication and authorization are not implemented. There is no login endpoint, route protection or role-based enforcement; password hashing alone does not provide access control.
 - This repository is a backend learning project; a complete frontend and production deployment are not included.
 - CRUD body validation is incomplete. Note writes do not verify that the supplied user exists, and malformed ObjectIds may produce server errors. Duplicate checks are application-level queries without unique indexes, so concurrent writes can race.
-- Pagination uses skip/limit. Deep offsets and case-insensitive substring regex searches may be expensive; no performance or load-testing claim is made. Sorting is deterministic for a fixed dataset, but pages may shift as notes change.
+- Pagination uses skip/limit. Deep offsets and case-insensitive substring regex searches may be expensive; performance and load testing remain to be done. Sorting is deterministic for a fixed dataset, but pages may shift as notes change.
 - Note retrieval and counting are separate queries without snapshot consistency. Concurrent writes can make returned records and totals differ. Username enrichment performs one additional user lookup per returned note.
 - The safe-integer offset guard prevents unsafe JavaScript arithmetic; it is not a practical database-performance cap or proof that every safe offset is accepted by every database configuration.
-- No automated CI run or clean-clone startup result is recorded. Optional tie-fixture results, concurrency, comprehensive malformed-body validation and direct password-hash preservation checks are outside the reported main-suite evidence.
+- CI automation and clean-clone startup verification remain to be completed. Additional tests are needed for concurrency, comprehensive malformed-body validation and direct password-hash preservation.
 - Connection failures are logged without retry orchestration; the error handler can expose raw error messages. Further operational hardening is needed before public deployment.

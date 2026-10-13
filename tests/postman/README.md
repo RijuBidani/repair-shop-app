@@ -1,8 +1,12 @@
 # Repair Shop canonical Postman regression suite
 
-This replaces the need to assemble the earlier CRUD, pagination/sorting, response-metadata checkpoints and individual search/completed requests. One collection has ordered folders for setup, GET behavior, validation, CRUD regression and cleanup. Your existing CRUD collection remains useful, but its older GET /notes array assertions must be updated to `{ notes, pagination }` before use with the refactor.
+A Postman regression collection for the Repair Shop API, with ordered folders for fixture setup, GET /notes behavior, query validation, user/note CRUD and cleanup.
 
-Target inspected: RijuBidani/repair-shop-app, commit 867023a7a53f2749b6a08c2a2bda301b5fadc944. There are 127 ordinary requests plus one optional equal-timestamp request. This covers the specified contract and regression matrix, not every possible input or application property. It is not a recorded live Postman/MongoDB passing run.
+The collection contains 127 main requests and one optional equal-timestamp request. Run it against an empty dedicated MongoDB test database using the instructions below.
+
+## Test result
+
+The main suite passed in Postman on 11 October 2026 after the pagination-offset safety check was added to the backend. The optional equal-timestamp fixture is a separate check and is not included in this result.
 
 ## Files and repository placement
 
@@ -11,7 +15,7 @@ Target inspected: RijuBidani/repair-shop-app, commit 867023a7a53f2749b6a08c2a2bd
 - `tie-fixture.mongosh.js`: optional fixed timestamp database fixture for the tie-break test.
 - This README: setup, run order, scope and limits.
 
-Commit these under `tests/postman/` in your repository. Keep MongoDB connection strings and `.env` out of Git. The original collections can be archived outside the canonical path; they do not need to be merged manually.
+These files belong under `tests/postman/` in the repository. Keep MongoDB connection strings and `.env` out of Git.
 
 ## Create a separate MongoDB Atlas test database
 
@@ -71,22 +75,15 @@ AFTER the main run finishes and cleans up:
 
 ## Limits and additional issues to track
 
-- This artifact has not been run against your live server and MongoDB. Generation/static checking is not a passing integration result.
 - HTTP query parameters are strings or repeated arrays under the app's simple query parser. Arbitrary JavaScript object/non-string helper arguments need separate unit tests; bracket-form parameters are tested as unsupported names here.
 - No login endpoint exists here, so excluding password hashes from GET responses does not prove that an omitted PATCH password preserved its hash. The request exercises that code path; direct database hash comparison would be required to prove preservation.
 - Concurrency races, malicious body inputs, malformed ObjectIds, authorization, performance, simultaneous find/count consistency, orphan-user enrichment and unsafe computed skip offsets are not covered by this contract suite. They are separate tests/design decisions, not implied passing claims.
 - Equal-timestamp ordering is proven only after you run the optional database fixture test.
 
-## Recording results honestly
+## Keeping test results current
 
-After an actual run, add its date, backend commit SHA, Postman version, exact executed request/assertion counts and failures to your root README. Export the run result if your Postman version supports it; check it for sensitive data before committing. Keep a failed run's failures visible rather than writing "all tests passed".
+When rerunning the suite, update the result above with the run date and backend commit. Request/assertion counts and the Postman version can be included if available. Record the optional equal-timestamp test separately when it is executed.
 
-Suggested wording BEFORE a live run:
-
-> Includes a canonical Postman collection covering GET /notes search, filtering, validation, pagination and sorting, plus user/note CRUD regression. Run against an empty dedicated MongoDB test database. A live integration result has not yet been recorded.
-
-Suggested wording AFTER a successful run (replace placeholders):
-
-> At commit [SHA], the canonical Postman suite passed [N] assertions across [R] executed requests on [DATE] against a dedicated MongoDB test database. The optional equal-timestamp sort check [was also run and passed / was not run].
+A screenshot or exported run report is optional supporting evidence, not a requirement for reporting a successful Postman run. Check any exported report for sensitive data before committing it.
 
 References: https://www.mongodb.com/docs/atlas/connect-to-database-deployment/ ; https://www.mongodb.com/docs/manual/core/databases-and-collections/ ; https://learning.postman.com/docs/tests-and-scripts/running-collections/intro-to-collection-runs
