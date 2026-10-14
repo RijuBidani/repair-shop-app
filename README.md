@@ -185,7 +185,17 @@ The suite covers title/text search, literal regex characters, completion/combine
 
 For a deliberately seeded timestamp tie, follow the separate `mongosh` fixture procedure in [the test README](tests/postman/README.md). Run only its optional folder with `runTieFixture=true`, clean up the fixture, and reset the flag. The optional fixture tests ordering when two notes have the same timestamp.
 
-**Test result:** the main Postman suite passed on 11 October 2026 after the pagination-offset safety check was added to the backend (commit `6d21e35`). The optional equal-timestamp fixture is a separate check and is not included in this result.
+**Latest test result:** on 14 October 2026, setup and server startup were verified from a fresh local clone on Windows by following this README, and all main-suite Postman tests passed against a separate empty test database.
+
+| Tested item | Value |
+| --- | --- |
+| Backend commit | `30da987` |
+| Node.js | `24.14.0` |
+| npm | `11.11.0` |
+| Environment | Fresh local clone on Windows |
+| Main Postman suite | All tests passed |
+
+The optional equal-timestamp fixture is a separate check and is not included in this result.
 
 There is currently no `npm test` script or CI test workflow. The collection does not yet include a focused test for an unsafe computed pagination offset.
 
@@ -205,5 +215,5 @@ Documentation and AI-assisted review/testing supported development of the extens
 - Pagination uses skip/limit. Deep offsets and case-insensitive substring regex searches may be expensive; performance and load testing remain to be done. Sorting is deterministic for a fixed dataset, but pages may shift as notes change.
 - Note retrieval and counting are separate queries without snapshot consistency. Concurrent writes can make returned records and totals differ. Username enrichment performs one additional user lookup per returned note.
 - The safe-integer offset guard prevents unsafe JavaScript arithmetic; it is not a practical database-performance cap or proof that every safe offset is accepted by every database configuration.
-- CI automation and clean-clone startup verification remain to be completed. Additional tests are needed for concurrency, comprehensive malformed-body validation and direct password-hash preservation.
+- CI automation remains to be completed. Additional tests are needed for concurrency, comprehensive malformed-body validation and direct password-hash preservation.
 - Connection failures are logged without retry orchestration; the error handler can expose raw error messages. Further operational hardening is needed before public deployment.
